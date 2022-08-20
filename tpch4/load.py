@@ -100,7 +100,7 @@ def load_tables(data_dir, sgbd, host, port, db_name, user, password, tables, loa
         return 1
 
 
-def index_tables(query_root, sgdb, host, port, db_name, user, password, prep_query_dir):
+def index_tables(query_root, sgbd, host, port, db_name, user, password, prep_query_dir):
     """Creates indexes and foreign keys for loaded tables.
 
     Args:
