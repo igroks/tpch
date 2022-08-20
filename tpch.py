@@ -6,11 +6,14 @@ import time
 import argparse
 import getpass
 
-from tpch4pgsql import postgresqldb as pgdb, load, query, prepare as prep, result as r
+from tpch4 import load, query, prepare as prep, result as r
+from tpch4.postgres import postgresqldb as pgdb
+from tpch4.sqlite import sqlitedb as sqltdb
 
 # Constants
 
 # default values for command line arguments:
+DEFAULT_SGBD = "postgres"
 DEFAULT_HOST = "localhost"
 DEFAULT_PORT = 5432
 DEFAULT_USERNAME = "postgres"
@@ -76,7 +79,7 @@ def scale_to_num_streams(scale):
     return num_streams
 
 
-def main(phase, host, port, user, password, database,
+def main(phase, sgbd, host, port, user, password, database,
          dbgen_dir, data_dir, query_root,
          scale, num_streams, verbose, read_only):
     # TODO: unify doctsring, some is in reStructuredText, some is Google style
@@ -119,24 +122,24 @@ def main(phase, host, port, user, password, database,
         print("created query files in %s" % query_root)
     elif phase == "load":
         result = r.Result("Load")
-        if load.clean_database(query_root, host, port, database, user, password, TABLES):
+        if load.clean_database(query_root, sgbd, host, port, database, user, password, TABLES):
             print("could not clean the database.")
             exit(1)
         print("cleaned database %s" % database)
         result.startTimer()
-        if load.create_schema(query_root, host, port, database, user, password, PREP_QUERY_DIR):
+        if load.create_schema(query_root, sgbd, host, port, database, user, password, PREP_QUERY_DIR):
             print("could not create schema.")
             exit(1)
         result.setMetric("create_schema: ", result.stopTimer())
         print("done creating schemas")
         result.startTimer()
-        if load.load_tables(data_dir, host, port, database, user, password, TABLES, LOAD_DIR):
+        if load.load_tables(data_dir, sgbd, host, port, database, user, password, TABLES, LOAD_DIR):
             print("could not load data to tables")
             exit(1)
         result.setMetric("load_data", result.stopTimer())
         print("done loading data to tables")
         result.startTimer()
-        if load.index_tables(query_root, host, port, database, user, password, PREP_QUERY_DIR):
+        if load.index_tables(query_root, sgbd, host, port, database, user, password, PREP_QUERY_DIR):
             print("could not create indexes for tables")
             exit(1)
         result.setMetric("index_tables", result.stopTimer())
@@ -145,13 +148,13 @@ def main(phase, host, port, user, password, database,
         result.saveMetrics(RESULTS_DIR, run_timestamp, "load")
     elif phase == "query":
         if query.run_power_test(query_root, data_dir, UPDATE_DIR, DELETE_DIR, GENERATED_QUERY_DIR, RESULTS_DIR,
-                                host, port, database, user, password,
+                                sgbd, host, port, database, user, password,
                                 run_timestamp, num_streams, verbose, read_only):
             print("running power tests failed")
             exit(1)
         # Throughput tests
         if query.run_throughput_test(query_root, data_dir, UPDATE_DIR, DELETE_DIR, GENERATED_QUERY_DIR, RESULTS_DIR,
-                                     host, port, database, user, password,
+                                     sgbd, host, port, database, user, password,
                                      run_timestamp, num_streams, verbose, read_only):
             print("running throughput tests failed")
             exit(1)
@@ -164,6 +167,8 @@ if __name__ == "__main__":
 
     parser.add_argument("phase", choices=["prepare", "load", "query"],
                         help="Phase of TPC-H benchmark to run.")
+    parser.add_argument("-a", "--sgbd", default=DEFAULT_SGBD,
+                        help="The SGBD that will run; default is %s" % DEFAULT_SGBD)
     parser.add_argument("-H", "--host", default=DEFAULT_HOST,
                         help="Address of host on which PostgreSQL instance runs; default is %s" % DEFAULT_HOST)
     parser.add_argument("-p", "--port", type=int, default=DEFAULT_PORT,
@@ -206,10 +211,11 @@ if __name__ == "__main__":
     password = args.password
     verbose = args.verbose
     read_only = args.read_only
+    sgbd = args.sgbd
 
     # if no num_streams was provided, then calculate default based on scale factor
     if num_streams == 0:
         num_streams = scale_to_num_streams(scale)
 
     # main
-    main(phase, host, port, user, password, database, dbgen_dir, data_dir, query_root, scale, num_streams, verbose, read_only)
+    main(phase, sgbd, host, port, user, password, database, dbgen_dir, data_dir, query_root, scale, num_streams, verbose, read_only)

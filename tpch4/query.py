@@ -3,8 +3,9 @@ import math
 import json
 from itertools import zip_longest
 from multiprocessing import Process, Queue
-
-from tpch4pgsql import postgresqldb as pgdb, result as r
+from tpch4 import result as r
+from tpch4.postgres import postgresqldb as pgdb
+from tpch4.sqlite import sqlitedb as sqltdb
 
 POWER = "power"
 THROUGHPUT = "throughput"
@@ -192,7 +193,7 @@ def run_query_stream(conn, query_root, generated_query_dir, stream, num_streams,
 
 
 def run_power_test(query_root, data_dir, update_dir, delete_dir, generated_query_dir, results_dir,
-                   host, port, database, user, password,
+                   sgbd, host, port, database, user, password,
                    run_timestamp, num_streams, verbose, read_only):
     """
 
@@ -216,7 +217,7 @@ def run_power_test(query_root, data_dir, update_dir, delete_dir, generated_query
     """
     try:
         print("Power tests started ...")
-        conn = pgdb.PGDB(host, port, database, user, password)
+        conn = pgdb.PGDB(host, port, database, user, password) if sgbd == 'postgres' else sqltdb.SQLITEDB(database)
         result = r.Result("Power")
         result.startTimer()
         stream = 0 # constant for power tests
@@ -246,7 +247,7 @@ def run_power_test(query_root, data_dir, update_dir, delete_dir, generated_query
 
 
 def run_throughput_inner(query_root, data_dir, generated_query_dir,
-                         host, port, database, user, password,
+                         sgbd, host, port, database, user, password,
                          stream, num_streams, queue, verbose):
     """
 
@@ -265,7 +266,7 @@ def run_throughput_inner(query_root, data_dir, generated_query_dir,
     :return: none, uses exit(1) to abort on errors
     """
     try:
-        conn = pgdb.PGDB(host, port, database, user, password)
+        conn = pgdb.PGDB(host, port, database, user, password) if sgbd == 'postgres' else sqltdb.SQLITEDB(database)
         result = r.Result("ThroughputQueryStream%s" % stream)
         if run_query_stream(conn, query_root, generated_query_dir, stream, num_streams, result, verbose):
             print("unable to finish query in stream #%s" % stream)
@@ -277,7 +278,7 @@ def run_throughput_inner(query_root, data_dir, generated_query_dir,
 
 
 def run_throughput_test(query_root, data_dir, update_dir, delete_dir, generated_query_dir, results_dir,
-                        host, port, database, user, password,
+                        sgbd, host, port, database, user, password,
                         run_timestamp, num_streams, verbose, read_only):
     """
 
@@ -301,7 +302,7 @@ def run_throughput_test(query_root, data_dir, update_dir, delete_dir, generated_
     """
     try:
         print("Throughput tests started ...")
-        conn = pgdb.PGDB(host, port, database, user, password)
+        conn = pgdb.PGDB(host, port, database, user, password) if sgbd == 'postgres' else sqltdb.SQLITEDB(database)
         total = r.Result("ThroughputTotal")
         total.startTimer()
         processes = []
@@ -312,7 +313,7 @@ def run_throughput_test(query_root, data_dir, update_dir, delete_dir, generated_
             print("Throughput tests in stream #%s started ..." % stream)
             p = Process(target=run_throughput_inner,
                         args=(query_root, data_dir, generated_query_dir,
-                              host, port, database, user, password,
+                              sgbd, host, port, database, user, password,
                               stream, num_streams, queue, verbose))
             processes.append(p)
             p.start()

@@ -1,8 +1,9 @@
 import os
-from tpch4pgsql import postgresqldb as pgdb
+from tpch4.postgres import postgresqldb as pgdb
+from tpch4.sqlite import sqlitedb as sqltdb
 
 
-def clean_database(query_root, host, port, db_name, user, password, tables):
+def clean_database(query_root, sgbd, host, port, db_name, user, password, tables):
     """Drops the tables if they exist
 
     Args:
@@ -19,7 +20,7 @@ def clean_database(query_root, host, port, db_name, user, password, tables):
         non zero otherwise
     """
     try:
-        conn = pgdb.PGDB(host, port, db_name, user, password)
+        conn = pgdb.PGDB(host, port, db_name, user, password) if sgbd == 'postgres' else sqltdb.SQLITEDB(db_name)
         try:
             for table in tables:
                 conn.executeQuery("DROP TABLE IF EXISTS %s " % table)
@@ -35,7 +36,7 @@ def clean_database(query_root, host, port, db_name, user, password, tables):
         return 1
 
 
-def create_schema(query_root, host, port, db_name, user, password, prep_query_dir):
+def create_schema(query_root, sgbd, host, port, db_name, user, password, prep_query_dir):
     """Creates the schema for the tests. Drops the tables if they exist
 
     Args:
@@ -52,7 +53,7 @@ def create_schema(query_root, host, port, db_name, user, password, prep_query_di
         non zero otherwise
     """
     try:
-        conn = pgdb.PGDB(host, port, db_name, user, password)
+        conn = pgdb.PGDB(host, port, db_name, user, password) if sgbd == 'postgres' else sqltdb.SQLITEDB(db_name)
         try:
             conn.executeQueryFromFile(os.path.join(query_root, prep_query_dir, "create_tbl.sql"))
         except Exception as e:
@@ -65,7 +66,7 @@ def create_schema(query_root, host, port, db_name, user, password, prep_query_di
         return 1
 
 
-def load_tables(data_dir, host, port, db_name, user, password, tables, load_dir):
+def load_tables(data_dir, sgbd, host, port, db_name, user, password, tables, load_dir):
     """Loads data into tables. Expects that tables are already empty.
 
     Args:
@@ -83,7 +84,7 @@ def load_tables(data_dir, host, port, db_name, user, password, tables, load_dir)
         non zero otherwise
     """
     try:
-        conn = pgdb.PGDB(host, port, db_name, user, password)
+        conn = pgdb.PGDB(host, port, db_name, user, password) if sgbd == 'postgres' else sqltdb.SQLITEDB(db_name)
         try:
             for table in tables:
                 filepath = os.path.join(data_dir, load_dir, table.lower() + ".tbl.csv")
@@ -99,7 +100,7 @@ def load_tables(data_dir, host, port, db_name, user, password, tables, load_dir)
         return 1
 
 
-def index_tables(query_root, host, port, db_name, user, password, prep_query_dir):
+def index_tables(query_root, sgdb, host, port, db_name, user, password, prep_query_dir):
     """Creates indexes and foreign keys for loaded tables.
 
     Args:
@@ -116,7 +117,7 @@ def index_tables(query_root, host, port, db_name, user, password, prep_query_dir
         non zero otherwise
     """
     try:
-        conn = pgdb.PGDB(host, port, db_name, user, password)
+        conn = pgdb.PGDB(host, port, db_name, user, password) if sgbd == 'postgres' else sqltdb.SQLITEDB(db_name)
         try:
             conn.executeQueryFromFile(os.path.join(query_root, prep_query_dir, "create_idx.sql"))
             conn.commit()
