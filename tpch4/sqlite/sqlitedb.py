@@ -29,7 +29,7 @@ class SQLITEDB:
 
     def executeQuery(self, query):
         if self.__cursor__ is not None:
-            self.__cursor__.execute(query)
+            self.__cursor__.executescript(query)
             return 0
         else:
             print("database has been closed")
